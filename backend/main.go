@@ -8,13 +8,24 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"discussion-forum/handlers"
+
+	"github.com/joho/godotenv"
 )
 
 var DB *mongo.Database
+
+func init() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+}
 
 func main() {
 	client, err := mongo.NewClient(options.Client().ApplyURI(os.Getenv("MONGO_URI")))
@@ -28,9 +39,23 @@ func main() {
 	}
 	DB = client.Database("discussion_forum")
 
-	r := gin.Default()
+	// Ensure unique indexes for username and email
+	userCol := DB.Collection("users")
+	indexModels := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "username", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys:    bson.D{{Key: "email", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+	}
+	if _, err := userCol.Indexes().CreateMany(context.Background(), indexModels); err != nil {
+		log.Fatal("Failed to create indexes:", err)
+	}
 
-	// Enable CORS
+	r := gin.Default()
 	r.Use(cors.Default())
 
 	handlers.Init(DB)
@@ -60,4 +85,5 @@ func setupRoutes(r *gin.Engine) {
 
 	// Comment routes
 	api.POST("/answers/:id/comments", handlers.AuthMiddleware(), handlers.CreateComment)
+	api.GET("/answers/:id/comments", handlers.GetComments)
 }
