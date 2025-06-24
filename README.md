@@ -1,4 +1,4 @@
-# Stack Overflow-like Discussion Forum
+# Discussion Forum
 
 A full-stack discussion built with:
 
