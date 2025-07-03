@@ -27,17 +27,30 @@ func init() {
 
 }
 
-func main() {
-	client, err := mongo.NewClient(options.Client().ApplyURI(os.Getenv("MONGO_URI")))
+func ConnectDB() *mongo.Client {
+	clientOptions := options.Client().ApplyURI(os.Getenv("MONGO_URI"))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel() // Ensure the context is cancelled when the function exits
+
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := client.Connect(ctx); err != nil {
+
+	// Ping the database to verify the connection
+	err = client.Ping(ctx, nil)
+	if err != nil {
 		log.Fatal(err)
 	}
-	DB = client.Database("discussion_forum")
+
+	log.Println("Connected to MongoDB!")
+	return client
+}
+
+func main() {
+	client := ConnectDB()
+	DB = client.Database(os.Getenv("DATABASE"))
 
 	// Ensure unique indexes for username and email
 	userCol := DB.Collection("users")
